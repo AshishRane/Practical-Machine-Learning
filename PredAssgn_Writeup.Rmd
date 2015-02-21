@@ -1,0 +1,77 @@
+##### Coursera - Data Science Specialization Course
+##### Practical Machine Learning -> Week 3 -> Course Project
+##### Author: Ashish Rane
+##### Project: Predict the manner in which a group of enthusisasts who use quantified devices did their exercises 
+
+### Synopsis
+
+Use of quantified self devices has become common these days. Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. The objective of this project is to predict the manner in which they did the exercise. 
+
+### Data Processing
+
+Download the training and testing datasets using the links provided. Make sure you change the working directory to directory where you've downloaded the files. The two csv files need to be loaded into two different data frames, pml_train for training dataset and pml_test for testing dataset.
+
+```{r,echo=TRUE}
+library(caret, quietly=TRUE)
+pml_train <- read.csv(file = 'pml-training.csv',na.strings = c('NA','#DIV/0!',''))
+pml_test <- read.csv(file = 'pml-testing.csv',na.strings = c('NA','#DIV/0!',''))
+```
+
+### Exploratory Data Analysis
+
+Performing exploratory data analysis suggests that first 7 variables of the data set are dimensional and may not have any significant impact on our prediction model. Rest of the columns are cast into numeric data with the exception of the last column (categorical vairable for prediction).
+
+```{r,echo=TRUE}
+for(i in c(8:ncol(pml_train)-1)) {
+  pml_train[,i] = as.numeric(as.character(pml_train[,i]))
+  pml_test[,i] = as.numeric(as.character(pml_test[,i]))
+}
+```
+
+Further analysis suggest that some of the variables are extremely sparsse and hence won't be useful for building a classification model. So lets remove such variables and also the dimensional variables.
+
+```{r,echo=TRUE}
+feature_index <- colnames(pml_train)
+feature_index <- colnames(pml_train[colSums(is.na(pml_train)) == 0])
+feature_index <- feature_index[-c(1:7)]
+```
+
+### Split Data for Testing and Cross-Validation
+
+To build the best model possible with best accuracy and minial sample error, we will split the testing data randomly by setting seed into 80% data as training sample and 20% data for cross validation. 
+
+```{r,echo=TRUE}
+set.seed(1300)
+index_train <- createDataPartition(y=pml_train$classe, p=0.80, list=FALSE)
+data_train <- pml_train[index_train,feature_index]
+data_xval <- pml_train[-index_train,feature_index]
+dim(data_train); dim(data_xval)
+```
+### Train model and cross validate
+
+We will use Random Forest model as per our initial analysis
+
+```{r,echo=TRUE}
+ranfor_mod <- train(classe ~ .,data=data_train, method = 'rf', trControl = trainControl(method = "cv", number = 4, allowParallel = TRUE, verboseIter = TRUE))
+pred_ranfor <- predict(ranfor_mod,data_xval)
+conf_mat_ranfor <- confusionMatrix(pred_ranfor,data_xval$classe)
+```
+### Validate using confusion matrix
+
+```{r,echo=TRUE}
+conf_mat_ranfor
+```
+
+### Apply finalized model to test set
+
+Rename the last column in the test data for compatability. Using the predict function, predictions are made for the test set, the output is the prediction vector
+
+```{r,echo=TRUE}
+last_col <- length(colnames(pml_test[]))
+colnames(pml_test)[last_col] <- 'classe'
+test_rf <- predict(ranfor_mod,pml_test[,feature_index])
+test_rf
+```
+
+
+
